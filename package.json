@@ -1,0 +1,35 @@
+{
+  "name": "my-life-one-day-at-a-time",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.16"
+  },
+  "scripts": {
+    "dev": "wrangler dev --test-scheduled",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types tests/run.ts",
+    "test:runtime": "npm run build && node --experimental-strip-types tests/runtime-smoke.ts",
+    "test:ai:live": "node --experimental-strip-types tests/live-journal-editor.ts",
+    "check": "npm run typecheck && npm test",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "deploy": "npm run check && wrangler deploy",
+    "db:create": "wrangler d1 create life-journal",
+    "db:local": "wrangler d1 migrations apply DB --local",
+    "db:remote": "wrangler d1 migrations apply DB --remote",
+    "setup:ids": "node --experimental-strip-types scripts/discover-ids.ts",
+    "setup:secrets": "node --experimental-strip-types scripts/set-secrets.ts",
+    "setup:webhook": "node --experimental-strip-types scripts/register-webhook.ts",
+    "check:webhook": "node --experimental-strip-types scripts/check-webhook.ts",
+    "check:channel": "node --experimental-strip-types scripts/verify-channel.ts",
+    "check:gemini": "node --experimental-strip-types scripts/verify-gemini.ts"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261113.1",
+    "@types/node": "22.20.5",
+    "miniflare": "5.20261113.0-beta",
+    "typescript": "7.0.2",
+    "wrangler": "4.162.0"
+  }
+}

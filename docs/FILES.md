@@ -1,0 +1,81 @@
+# Project files
+
+```text
+.dev.vars.example
+.gitignore
+package.json
+package-lock.json
+tsconfig.json
+wrangler.jsonc
+README.md
+src/
+  index.ts
+  ai/
+    gemini.ts
+    prompts.ts
+    validation.ts
+  config/
+    env.ts
+  database/
+    queries.ts
+    types.ts
+  journal/
+    drafts.ts
+    entries.ts
+    publishing.ts
+    state-machine.ts
+  reminders/
+    scheduled.ts
+  security/
+    authorization.ts
+    webhook-validation.ts
+  telegram/
+    api.ts
+    callbacks.ts
+    commands.ts
+    formatting.ts
+    media.ts
+    types.ts
+    webhook.ts
+  utils/
+    dates.ts
+    errors.ts
+migrations/
+  0001_initial.sql
+  0002_edit_validation.sql
+scripts/
+  common.ts
+  discover-ids.ts
+  set-secrets.ts
+  register-webhook.ts
+  check-webhook.ts
+  verify-channel.ts
+  verify-gemini.ts
+tests/
+  helpers.ts
+  run.ts
+  authorization.test.ts
+  journal.test.ts
+  publishing.test.ts
+  media.test.ts
+  ai.test.ts
+  reminders.test.ts
+  webhook.test.ts
+  free-tier.test.ts
+  journal-enhancement.test.ts
+  live-journal-editor.ts
+  runtime-smoke.ts
+  fixtures/
+    journal-languages.ts
+docs/
+  FILES.md
+  ARCHITECTURE.md
+  RECOVERY.md
+  SECURITY.md
+  MANUAL_TESTING.md
+  VERIFICATION.md
+  SETUP_STATUS.md
+  AI_EDITOR_UPDATE.md
+```
+
+Generated, ignored directories present after local verification: `node_modules/`, `.cache/`, `.wrangler/`, and `dist/`. These are not runtime storage requirements and must not be committed. `dist/index.js` is the local dry-run bundle used by the isolated runtime smoke test.

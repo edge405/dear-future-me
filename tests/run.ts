@@ -1,0 +1,9 @@
+import './authorization.test.ts';
+import './journal.test.ts';
+import './publishing.test.ts';
+import './media.test.ts';
+import './ai.test.ts';
+import './journal-enhancement.test.ts';
+import './reminders.test.ts';
+import './webhook.test.ts';
+import './free-tier.test.ts';
