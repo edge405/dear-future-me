@@ -35,6 +35,7 @@ src/
     commands.ts
     formatting.ts
     media.ts
+    menu.ts
     types.ts
     webhook.ts
   utils/
@@ -43,11 +44,13 @@ src/
 migrations/
   0001_initial.sql
   0002_edit_validation.sql
+  0003_followup_entries.sql
 scripts/
   common.ts
   discover-ids.ts
   set-secrets.ts
   register-webhook.ts
+  register-commands.ts
   check-webhook.ts
   verify-channel.ts
   verify-gemini.ts
@@ -61,6 +64,7 @@ tests/
   ai.test.ts
   reminders.test.ts
   webhook.test.ts
+  commands.test.ts
   free-tier.test.ts
   journal-enhancement.test.ts
   live-journal-editor.ts
@@ -76,6 +80,7 @@ docs/
   VERIFICATION.md
   SETUP_STATUS.md
   AI_EDITOR_UPDATE.md
+  COMMAND_FIX.md
 ```
 
 Generated, ignored directories present after local verification: `node_modules/`, `.cache/`, `.wrangler/`, and `dist/`. These are not runtime storage requirements and must not be committed. `dist/index.js` is the local dry-run bundle used by the isolated runtime smoke test.

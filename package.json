@@ -21,6 +21,7 @@
     "setup:ids": "node --experimental-strip-types scripts/discover-ids.ts",
     "setup:secrets": "node --experimental-strip-types scripts/set-secrets.ts",
     "setup:webhook": "node --experimental-strip-types scripts/register-webhook.ts",
+    "setup:commands": "node --experimental-strip-types scripts/register-commands.ts",
     "check:webhook": "node --experimental-strip-types scripts/check-webhook.ts",
     "check:channel": "node --experimental-strip-types scripts/verify-channel.ts",
     "check:gemini": "node --experimental-strip-types scripts/verify-gemini.ts"

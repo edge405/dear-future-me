@@ -12,7 +12,7 @@ import { manilaDate } from '../utils/dates.ts';
 import { UserError } from '../utils/errors.ts';
 import { deliverReminder } from '../reminders/scheduled.ts';
 
-export const helpText = `A little of your life, one day at a time.\n\n/journal — start or resume today\n/date YYYY-MM-DD — select a past day\n/done — prepare a preview\n/preview — read the preview\n/save — approve and save the preview\n/save original — save exact originals\n/revise your request — revise with AI\n/cancel — cancel with confirmation\n/status — selected draft and progress\n/today — today's saved entry\n/history — recent saved dates and links\n/ai_on — review AI privacy and consent\n/ai_off — stop future AI processing\n/privacy — storage and privacy\n/settings — schedule and AI status\n/id — your Telegram ID\n/help — this guide\n\nSend text, photos, albums, videos, voice, audio, or documents after /journal. Nothing is saved to the channel until you approve.\n\nRecovery: /recover ITEM destination_IDs, /recover ITEM retry, or /recover ITEM map:source=destination. /reminder retries today's reminder after you check it was not delivered. See README before using recovery.`;
+export const helpText = `A little of your life, one day at a time.\n\n/journal — start or resume today\n/date YYYY-MM-DD — select a past day\n/done — prepare a preview\n/preview — read the preview\n/save — approve and save the preview\n/save original — save exact originals\n/regenerate - try a fresh AI version\n/continue - resume writing\n/revise your request — revise with AI\n/cancel — cancel with confirmation\n/status — selected draft and progress\n/today — today's saved entry\n/history — recent saved dates and links\n/ai_on — review AI privacy and consent\n/ai_off — stop future AI processing\n/privacy — storage and privacy\n/settings — schedule and AI status\n/id — your Telegram ID\n/help — this guide\n\nSend text, photos, albums, videos, voice, audio, or documents after /journal. After saving, /journal starts another draft for today. AI requires /ai_on and its confirmation button. Nothing is saved to the channel until you approve.\n\nRecovery: /recover ITEM destination_IDs, /recover ITEM retry, or /recover ITEM map:source=destination. /reminder retries today's reminder after you check it was not delivered. See README before using recovery.`;
 
 export class Bot {
   env: Env; tg: Telegram; store: Store; drafts: Drafts; entries: Entries; publishing: Publishing;
@@ -33,6 +33,10 @@ export class Bot {
     await this.send(a?.first_channel_message_id ? `Saved ${a.journal_date}.\n${channelLink(a.channel_id, a.first_channel_message_id)}` : 'No completed archive link is available yet. Use /status.');
   }
   async prepare(d: Draft, regenerate = false, revision?: string): Promise<void> {
+    if (!['publishing','published','cancelled'].includes(d.status) && (regenerate || d.status !== 'preview_ready' || (d.preview_kind === 'original' && d.ai_attempts === 0))) {
+      const settings = await this.store.settings();
+      if (settings.ai_consent && aiConfigured(this.env)) await this.send('Preparing your AI preview. Your originals stay intact; nothing is published until you approve.');
+    }
     const prepared = await this.entries.prepare(d, regenerate, revision);
     await this.entries.preview(prepared.draft, 0, prepared.warning);
   }
@@ -47,15 +51,16 @@ export class Bot {
       keyboard([['Yes, cancel draft', cb('c', d)], ['Keep writing', cb('w', d)]]));
   }
   async command(message: TgMessage, update: number): Promise<void> {
-    const text = message.text ?? '';
-    const command = /^\/([a-z_]+)(?:@([A-Za-z0-9_]+))?(?:\s+([\s\S]*))?$/.exec(text);
+    const text = (message.text ?? '').trim();
+    const command = /^\/([a-z_]+)(?:@([A-Za-z0-9_]+))?(?:\s+([\s\S]*))?$/i.exec(text);
     if (!command) {
+      if (text.startsWith('/')) { await this.send('That command is not recognized. Use /help for the command list. It has not been added to your journal.'); return; }
       const d = await this.drafts.append(message, update);
       // Albums may arrive as separate updates. Acknowledge only caption/text and single media.
       if (!message.media_group_id) await this.send('Added to your draft. Keep writing, or send /done.', keyboard([['Prepare Entry', cb('d', d)]]));
       return;
     }
-    const [, name, mention, raw = ''] = command; const arg = raw.trim();
+    const [, commandName, mention, raw = ''] = command; const name = commandName.toLowerCase(); const arg = raw.trim();
     if (mention) {
       const me = await this.tg.call<{ username: string }>('getMe');
       if (mention.toLowerCase() !== me.username?.toLowerCase()) return;
@@ -66,24 +71,29 @@ export class Bot {
       case 'help': await this.send(helpText); break;
       case 'id': await this.send(`Your Telegram account ID: ${this.env.OWNER_TELEGRAM_ID}`); break;
       case 'journal': await this.start(); break;
-      case 'date': await this.start(arg); break;
+      case 'date':
+        if (!arg) { await this.send(`Choose a past date with /date YYYY-MM-DD, for example /date ${manilaDate()}. Or tap below to write about today.`, keyboard([['Write about today', 'j']])); break; }
+        await this.start(arg); break;
       case 'done': await this.prepare(await this.drafts.selected()); break;
       case 'preview': await this.entries.preview(await this.drafts.selected()); break;
+      case 'regenerate': await this.prepare(await this.drafts.selected(), true); break;
+      case 'continue': await this.drafts.continue((await this.drafts.selected()).id); await this.send('Your draft is open. Keep writing, then send /done for a fresh preview.'); break;
       case 'save':
         if (arg && arg !== 'original') throw new UserError('Use /save or /save original.');
         await this.save(await this.drafts.selected(), arg === 'original'); break;
       case 'revise':
-        if (!arg || arg.length > 800) throw new UserError('Use /revise followed by a short wording request (up to 800 characters). Your originals stay intact.');
+        if (!arg) { await this.send('Send /revise followed by what you want changed, for example:\n\n/revise Improve the flow and keep my natural Taglish.\n\nTo change your original notes instead, use /continue.'); break; }
+        if (arg.length > 800) throw new UserError('Use /revise followed by a short wording request (up to 800 characters). Your originals stay intact.');
         await this.prepare(await this.drafts.selected(), true, arg); break;
       case 'cancel': await this.confirmCancel(await this.drafts.selected()); break;
       case 'history': {
         const rows = await this.store.all<Archive>(`SELECT a.* FROM journal_archives a JOIN journal_drafts d ON d.id=a.draft_id
-          WHERE a.status='published' AND d.telegram_user_id=? ORDER BY a.journal_date DESC LIMIT 15`, this.store.owner);
+          WHERE a.status='published' AND d.telegram_user_id=? ORDER BY a.journal_date DESC,a.created_at DESC,a.id DESC LIMIT 15`, this.store.owner);
         await this.send(rows.length ? rows.map(a => `${a.journal_date} — ${a.title}\n${channelLink(a.channel_id, a.first_channel_message_id!)}`).join('\n\n') : 'Your archive is waiting for its first day. Use /journal whenever you are ready.'); break;
       }
       case 'today': {
         const a = await this.store.first<Archive>(`SELECT a.* FROM journal_archives a JOIN journal_drafts d ON d.id=a.draft_id
-          WHERE a.journal_date=? AND a.status='published' AND d.telegram_user_id=?`, manilaDate(), this.store.owner);
+          WHERE a.journal_date=? AND a.status='published' AND d.telegram_user_id=? ORDER BY a.created_at DESC,a.id DESC LIMIT 1`, manilaDate(), this.store.owner);
         await this.send(a ? `Today is saved.\n${channelLink(a.channel_id, a.first_channel_message_id!)}` : 'Today has not been saved yet. Use /journal whenever you are ready.'); break;
       }
       case 'status': {
@@ -99,15 +109,9 @@ export class Bot {
       case 'privacy': await this.send('Your bot conversation and private channel are stored by Telegram. Private channels are not end-to-end encrypted. The channel is your main archive.\n\nCloudflare D1 temporarily stores unfinished text/captions and previews, plus message references, settings, delivery state, and archive metadata. Text and previews are removed from live D1 rows after a complete save; backups may retain earlier copies briefly. No media is downloaded or stored by this app.\n\nGemini is optional and starts off. With your consent, journal text, media captions, and revision requests are sent to Google. Free-tier data may be used to improve Google products under its terms. Gemini Plus does not include API credits. Photos, videos, and audio are never sent to Gemini; voice notes are not transcribed. /ai_off stops future requests.\n\nKeep original bot messages until saving finishes. The Bot API cannot generally fetch arbitrary channel history for future AI summaries.'); break;
       case 'settings': {
         const settings = await this.store.settings();
-        await this.send(`Reminder: around 7 PM, Asia/Manila (UTC+8), daily.\nAI consent: ${settings.ai_consent ? 'on' : 'off'}.\nAI setup: ${aiConfigured(this.env) ? 'verified configuration (expires; project billing must remain disabled)' : 'disabled or verification expired'}.\nAI attempts: at most 3 per draft and 10 per Philippine day.\nImages and audio: archive only.\nUse /ai_on or /ai_off.`); break;
+        await this.send(`Reminder: around 7 PM, Asia/Manila (UTC+8), daily.\nAI consent: ${settings.ai_consent ? 'on' : 'off — enable and confirm below to get AI previews'}.\nAI setup: ${aiConfigured(this.env) ? 'verified configuration (expires; project billing must remain disabled)' : 'disabled or verification expired'}.\nAI attempts: at most 3 per draft and 10 per Philippine day.\nImages and audio: archive only.\nUse /ai_on or /ai_off.`, settings.ai_consent ? undefined : keyboard([['Enable AI', 'ai']])); break;
       }
-      case 'ai_on': {
-        if (!aiConfigured(this.env)) throw new UserError('AI is off in setup or its free-project verification has expired. You can keep journaling and saving originals. See the optional AI setup guide.');
-        await this.store.settings();
-        const nonce = crypto.randomUUID();
-        await this.store.run('UPDATE app_settings SET consent_nonce=?,consent_expires_at=?,updated_at=? WHERE owner_id=?', nonce, Date.now() + 600000, Date.now(), this.store.owner);
-        await this.send('Enable Gemini for future preparations?\n\nJournal text, original media captions, and revision requests will be sent to Google’s API. Free-tier API data may be used to improve Google products under its applicable terms. Gemini Plus does not automatically include API credits. Only a separately verified API project with billing disabled may be used.\n\nImages, videos, and audio are excluded. AI may make mistakes: review before saving. You can stop future requests with /ai_off. This confirmation expires in 10 minutes.', keyboard([['I agree — enable text AI', 'a:' + nonce], ['Keep AI off', 'off']])); break;
-      }
+      case 'ai_on': await this.enableAi(); break;
       case 'ai_off': await this.disableAi(); break;
       case 'recover': {
         const match = /^(\d+) (\S+)$/.exec(arg);
@@ -118,6 +122,13 @@ export class Bot {
       case 'reminder': await deliverReminder(this.env, this.store, this.tg, Date.now(), true); break;
       default: await this.send('Use /help to see the commands, or /journal to start writing.');
     }
+  }
+  async enableAi(): Promise<void> {
+    if (!aiConfigured(this.env)) throw new UserError('AI is off in setup or its free-project verification has expired. You can keep journaling and saving originals. See the optional AI setup guide.');
+    await this.store.settings();
+    const nonce = crypto.randomUUID();
+    await this.store.run('UPDATE app_settings SET consent_nonce=?,consent_expires_at=?,updated_at=? WHERE owner_id=?', nonce, Date.now() + 600000, Date.now(), this.store.owner);
+    await this.send('Enable Gemini for future preparations?\n\nJournal text, original media captions, and revision requests will be sent to Google’s API. Free-tier API data may be used to improve Google products under its applicable terms. Gemini Plus does not automatically include API credits. Only a separately verified API project with billing disabled may be used.\n\nImages, videos, and audio are excluded. AI may make mistakes: review before saving. You can stop future requests with /ai_off. This confirmation expires in 10 minutes.', keyboard([['I agree — enable text AI', 'a:' + nonce], ['Keep AI off', 'off']]));
   }
   async disableAi(): Promise<void> {
     await this.store.settings();

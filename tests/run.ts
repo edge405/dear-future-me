@@ -6,4 +6,5 @@ import './ai.test.ts';
 import './journal-enhancement.test.ts';
 import './reminders.test.ts';
 import './webhook.test.ts';
+import './commands.test.ts';
 import './free-tier.test.ts';

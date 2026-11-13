@@ -8,13 +8,14 @@ export async function callback(bot: Bot, c: TgCallback): Promise<void> {
   try { await bot.tg.call('answerCallbackQuery', { callback_query_id: c.id }); } catch { /* Expired UI acknowledgements do not change workflow state. */ }
   const data = c.data ?? '';
   if (data === 'j') { await bot.start(); return; }
+  if (data === 'ai') { await bot.enableAi(); return; }
   if (data === 'off') { await bot.disableAi(); return; }
   if (data.startsWith('a:')) {
     if (!aiConfigured(bot.env)) throw new UserError('AI setup is disabled or expired. Originals remain available.');
     const updated = await bot.store.run(`UPDATE app_settings SET ai_consent=1,consent_nonce=NULL,consent_expires_at=NULL,updated_at=?
       WHERE owner_id=? AND consent_nonce=? AND consent_expires_at>=?`, Date.now(), bot.store.owner, data.slice(2), Date.now());
     if (!updated) throw new UserError('That consent button expired. Use /ai_on to review the current notice.');
-    await bot.send('Text AI is enabled for future preparations. Use /done when ready, and review the result before saving.');
+    await bot.send('Text AI is enabled. Use /journal to write, then /done for an AI preview. If you already have an original preview, /done will now prepare it with AI. Review before saving.', { inline_keyboard: [[{ text: 'Start / resume journal', callback_data: 'j' }]] });
     return;
   }
   const parsed = /^([dposgwvxc]):([a-f0-9-]{36}):(\d+)(?::(\d+))?$/.exec(data);

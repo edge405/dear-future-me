@@ -7,7 +7,7 @@ Updated November 14, 2026. No credentials are recorded in this document.
 | Local implementation, tests, and Worker/D1 smoke test | Passed; see VERIFICATION.md |
 | Cloudflare authentication | Complete through Wrangler OAuth |
 | Real D1 database | `life-journal` created in APAC; real ID saved in wrangler.jsonc |
-| Remote SQL migrations | Both 0001 and 0002 applied successfully |
+| Remote SQL migrations | 0001, 0002 and 0003 applied successfully; 0003 permits a new draft after a saved entry on the same date |
 | Telegram bot token | Saved locally and accepted by read-only Telegram checks |
 | Configured bot | `@edjay_reminder_bot`; confirmed by owner |
 | Webhook secret | Generated and saved locally |
@@ -19,6 +19,7 @@ Updated November 14, 2026. No credentials are recorded in this document.
 | Gemini free-project verification | Owner reported Free tier in Google AI Studio on November 14, 2026; billing was not enabled or changed by the app. This is operator attestation, not independent billing proof. |
 | Gemini synthetic generation probe | Passed with a made-up setup sentence; valid structured output and exact application date verified; no personal journal text sent |
 | AI deployment availability | Enabled for reviewed `gemini-3.5-flash-lite`; verification expires December 14, 2026 |
+| AI/command workflow repair | Deployed version `002fc2be-30c6-478f-b62f-389da6d6567a`; all 44 Node tests and both workerd tests pass; 19-command menu verified; see COMMAND_FIX.md |
 | Personal-text AI consent | Off (`ai_consent=0`) after deployment; owner must use `/ai_on` and confirm the privacy notice |
 | Worker deployment | Deployed successfully with D1 and cron `0 11 * * *` |
 | Worker URL | https://my-life-journal.my-life-one-day-at-a-time.workers.dev |

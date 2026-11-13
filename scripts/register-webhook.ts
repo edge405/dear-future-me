@@ -1,6 +1,7 @@
 import { client, localConfig, main, question, required } from './common.ts';
 import { validateEnv } from '../src/config/env.ts';
 import type { Env } from '../src/config/env.ts';
+import { botCommands } from '../src/telegram/menu.ts';
 
 await main(async () => {
   const config = localConfig(); validateEnv(config as unknown as Env);
@@ -14,12 +15,7 @@ await main(async () => {
   const endpoint = new URL('/telegram/webhook', url).href;
   await tg.call('setWebhook', { url: endpoint, secret_token: required(config, 'TELEGRAM_WEBHOOK_SECRET'),
     allowed_updates: ['message','edited_message','callback_query','channel_post','my_chat_member'], max_connections: 1, drop_pending_updates: false });
-  await tg.call('setMyCommands', { scope: { type: 'chat', chat_id: Number(config.OWNER_TELEGRAM_ID) }, commands: [
-    { command: 'journal', description: 'Start or resume today' }, { command: 'done', description: 'Prepare your preview' },
-    { command: 'save', description: 'Approve and save the preview' }, { command: 'status', description: 'Check your current draft' },
-    { command: 'history', description: 'Recent saved journal links' }, { command: 'privacy', description: 'Storage and AI privacy' },
-    { command: 'help', description: 'All journal commands' }
-  ] });
+  await tg.call('setMyCommands', { scope: { type: 'chat', chat_id: Number(config.OWNER_TELEGRAM_ID) }, commands: botCommands });
   const info = await tg.call<{ url: string; max_connections: number; pending_update_count: number }>('getWebhookInfo');
   if (info.url !== endpoint || info.max_connections !== 1) throw new Error('Verification failed: Telegram webhook settings do not match.');
   console.log(`Webhook registered and verified. Pending updates: ${info.pending_update_count}. Send /start to your bot. No pending updates were discarded.`);

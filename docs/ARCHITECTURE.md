@@ -10,7 +10,7 @@ Invalid secrets return 403. Invalid/bounded-overflow JSON returns 400. Wrong met
 
 `collecting → preparing → preview_ready → publishing → published`.
 
-Collecting/preparing/preview/failed drafts may be cancelled. Preparing can recover to collecting, preview, or failed. A delivered new note/edit reopens a preview for collection and clears its approval. Publishing cannot be cancelled or rewritten. Terminal published/cancelled states do not reopen. A SQL trigger enforces allowed transitions, and a partial unique index enforces one non-cancelled owner/date draft. Reopening a cancelled date creates a new ID.
+Collecting/preparing/preview/failed drafts may be cancelled. Preparing can recover to collecting, preview, or failed. A delivered new note/edit reopens a preview for collection and clears its approval. Publishing cannot be cancelled or rewritten. Terminal published/cancelled states do not reopen. A SQL trigger enforces allowed transitions, and migration 0003 changes the partial unique index to enforce one unfinished owner/date draft. Starting again after publication or cancellation creates a new ID and leaves prior archives unchanged. `/today` selects the most recent completed archive for today.
 
 The selected draft is explicit in `app_settings`. `/journal` selects today's Asia/Manila draft; `/date` can select a past one. Commands operate on the selection. Buttons include draft UUID and revision, fit Telegram's 64-byte callback limit, and never contain content. Confirmed AI consent has a separate short-lived nonce. The webhook checks sender, private chat, and matching chat ID before any data read.
 

@@ -88,20 +88,28 @@ test('Cloudflare workerd runtime executes migrations and the complete original-o
     await send('/save'); assert.equal(calls.filter(c => c.body.chat_id === '-1001234567890').length, before);
     const result = await db.prepare('SELECT COUNT(*) AS n FROM processed_updates').first<{ n: number }>();
     assert.equal(result?.n, 6);
+    await send('/journal');
+    const followup = await send('Another memory from the same day.'); await send('/done');
+    await db.prepare('UPDATE journal_drafts SET last_content_at=0').run(); await send('/save');
+    assert.equal((await db.prepare("SELECT COUNT(*) AS n FROM journal_archives WHERE status='published'").first())?.n, 2);
+    assert.equal(calls.filter(c => c.method === 'copyMessage').at(-1)?.body.message_id, followup);
   });
 });
 
 test('Cloudflare runtime handles one-paragraph Taglish AI preview, consent, media, approval, and title styling', async () => {
   await withRuntime(true, async ({ db, calls, send, press }) => {
-    await send('/ai_on');
-    const consent = calls.at(-1)!.body.reply_markup.inline_keyboard[0][0].callback_data;
-    await press(consent);
-    assert.equal((await db.prepare('SELECT ai_consent FROM app_settings').first())?.ai_consent, 1);
     await send('/date 2026-01-01');
     const sources: number[] = [];
     for (const note of languageFixtures[2].notes) sources.push(await send(note));
     sources.push(await send(undefined, { photo: [{}] }));
     sources.push(await send(undefined, { video: {} }));
+    await send('/done');
+    assert.equal(calls.some(c => c.method === 'generateContent'), false);
+    assert.ok(calls.at(-1)!.body.text.includes('AI is off'));
+    await press('ai');
+    const consent = calls.at(-1)!.body.reply_markup.inline_keyboard[0][0].callback_data;
+    await press(consent);
+    assert.equal((await db.prepare('SELECT ai_consent FROM app_settings').first())?.ai_consent, 1);
     await send('/done');
     assert.equal(calls.some(c => c.body.chat_id === '-1001234567890'), false);
     assert.deepEqual(calls.find(c => c.method === 'generateContent')?.body.notes, languageFixtures[2].notes);

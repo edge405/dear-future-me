@@ -28,7 +28,7 @@ export class Drafts {
     await s.settings();
     await s.run(`INSERT OR IGNORE INTO journal_drafts(id, telegram_user_id, entry_date, status, created_at, updated_at)
       VALUES (?, ?, ?, 'collecting', ?, ?)`, crypto.randomUUID(), s.owner, date, Date.now(), Date.now());
-    const draft = (await s.first<Draft>("SELECT * FROM journal_drafts WHERE telegram_user_id = ? AND entry_date = ? AND status != 'cancelled'", s.owner, date))!;
+    const draft = (await s.first<Draft>("SELECT * FROM journal_drafts WHERE telegram_user_id = ? AND entry_date = ? AND status NOT IN ('published','cancelled')", s.owner, date))!;
     await s.run('UPDATE app_settings SET selected_draft_id = ?, updated_at = ? WHERE owner_id = ?', draft.id, Date.now(), s.owner);
     return draft;
   }

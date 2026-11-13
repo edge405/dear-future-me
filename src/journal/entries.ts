@@ -18,8 +18,11 @@ export class Entries {
   drafts: Drafts; env: Env; tg: Telegram;
   constructor(drafts: Drafts, env: Env, tg: Telegram) { this.drafts = drafts; this.env = env; this.tg = tg; }
   async prepare(d: Draft, regenerate = false, revision?: string): Promise<{ draft: Draft; warning?: string }> {
-    if (['publishing','published','cancelled'].includes(d.status)) throw new UserError('This entry is closed or being saved.');
-    if (d.status === 'preview_ready' && !regenerate && !revision && (d.preview_kind !== 'ai' || currentAiPreview(d))) return { draft: d };
+    if (['publishing','published','cancelled'].includes(d.status)) throw new UserError('This entry is closed or being saved. Use /journal for a new draft, or /status to check a save in progress.');
+    const settings = await this.drafts.store.settings();
+    // An original preview prepared before consent must not mask newly enabled AI.
+    const newlyEnabled = d.preview_kind === 'original' && d.ai_attempts === 0 && settings.ai_consent && aiConfigured(this.env);
+    if (d.status === 'preview_ready' && !regenerate && !revision && !newlyEnabled && (d.preview_kind !== 'ai' || currentAiPreview(d))) return { draft: d };
     const messages = await this.drafts.messages(d.id);
     if (!messages.length) throw new UserError('Send a few words or a memory first. Short entries are welcome.');
     if (messages.some(m => m.validation_error)) throw new UserError('An edited original needs attention. Restore a supported message type or shorten it, then prepare again. Your draft is preserved.');
@@ -27,7 +30,6 @@ export class Entries {
     await s.run("UPDATE journal_drafts SET status='preparing',updated_at=? WHERE id=?", Date.now(), d.id);
     let title = 'My day'; let story: string | null = null;
     let kind = 'original'; let warning: string | undefined;
-    const settings = await s.settings();
     const notes = notesFrom(messages);
     if (settings.ai_consent && aiConfigured(this.env) && notes.length) {
       const today = manilaDate();
@@ -51,6 +53,8 @@ export class Entries {
           }
         }
       }
+    } else if (!settings.ai_consent && notes.length) {
+      warning = 'AI is off. Use /ai_on and confirm to enable it, then /done. Your original entry is ready to save.';
     } else if (regenerate || revision || (settings.ai_consent && !aiConfigured(this.env))) {
       warning = 'AI is disabled or its free-project verification has expired. Your original entry is ready to save.';
     }
@@ -72,6 +76,11 @@ export class Entries {
     const pages = chunks(text, 3200);
     if (!Number.isInteger(page) || page < 0 || page >= pages.length) throw new UserError('That preview page is unavailable. Use /preview.');
     const controls: [string, string][][] = [];
+    const settings = await this.drafts.store.settings();
+    if (d.preview_kind === 'original' && !settings.ai_consent) {
+      warning ??= 'AI is off. Enable it below and confirm, then send /done for an AI preview. You can also save your originals.';
+      controls.push([['Enable AI', 'ai']]);
+    }
     const nav: [string, string][] = [];
     if (page) nav.push(['Previous', cb('p', d, page - 1)]);
     if (page + 1 < pages.length) nav.push(['Next preview', cb('p', d, page + 1)]);
